@@ -1,69 +1,40 @@
-# Linux-Dictation-Project
-expands the boundaries of speech recognition technology for documentation productivity on the Linux PC. With dictation and transcription capabilities as well as control over your system written in Python using whisper.
+Linux Dictation Project v0.9.4
+==============================
 
-# Linux Voice Dictation and Command Mode (Enhanced)
+This version includes:
+- Continuous voice listening with improved wake command handling.
+- Substring match for wake commands like "wake up" or "start listening".
+- Forced English-only transcription to reduce misinterpretation.
+- Skips empty transcripts to avoid typing blank lines.
+- Optimized for lower CPU/memory consumption.
 
-This project enables voice-based dictation and command control on Linux using Whisper, xdotool, and a system tray interface.
+Installation Dependencies (Fedora):
+----------------------------------
+sudo dnf install python3-pip xdotool portaudio-devel
+pip3 install sounddevice numpy scipy pyqt5 openai-whisper
 
-## ✅ Features
+Installation (Generic):
+-----------------------
+1. Copy `whisper_dictate.py` to ~/bin/Scripts/
+2. Copy `whisper-dictation.service` to ~/.config/systemd/user/
+3. Enable service with:
+   systemctl --user daemon-reload
+   systemctl --user enable whisper-dictation.service
+   systemctl --user start whisper-dictation.service
 
-- **Dictation Mode**: Transcribes speech to text with Whisper and types it in any window.
-- **Command Mode**:
-  - Launch or kill applications by voice
-  - Navigate, delete, or select text
-  - Control mouse cursor, click, and adjust sensitivity
-  - Press keys and combinations (e.g., `control a`, `alt f4`)
-  - Say `"select word"`, `"select 5 characters"`, `"copy"`, `"paste"`, `"hold control"`, `"release"` etc.
-- **System Tray**: Shows listening state and toggles modes via click
+Usage:
+------
+- Click the floating widget to toggle between Dictation and Command modes.
+- Say "wake up" or "start listening" to activate listening.
+- Say "stop listening" or "go to sleep" to pause recognition.
 
-## 📦 Dependencies
+Commands:
+---------
+- In Command mode:
+  - "copy", "paste", "select word", "select line", etc. (customize as needed)
+- In Dictation mode:
+  - Spoken words are typed in real-time, with punctuation support.
 
-### Fedora
-```bash
-sudo dnf install python3-pip portaudio-devel python3-devel libXtst xdotool PyQt5
-pip install whisper sounddevice scipy numpy psutil
-```
-
-### Debian/Ubuntu
-```bash
-sudo apt install python3-pip portaudio19-dev python3-dev xdotool libxtst-dev python3-pyqt5
-pip install whisper sounddevice scipy numpy psutil
-```
-
-## ⚙️ Systemd Startup Service
-
-To enable on login:
-
-### `~/.config/systemd/user/voice-dictation.service`
-```ini
-[Unit]
-Description=Voice Dictation Service
-
-[Service]
-ExecStart=/usr/bin/python3 /path/to/whisper_dictate.py
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-```
-
-Update `/path/to/whisper_dictate.py` to your script’s full path.
-
-Then:
-```bash
-systemctl --user daemon-reexec
-systemctl --user enable --now voice-dictation.service
-```
-
-## 🎙 Usage
-
-- Start script or login with systemd enabled
-- Say `"command mode"` to enter control mode
-- Say commands like:
-  - `"select word"`, `"select 5 words"`, `"hold shift"`, `"release"`
-  - `"copy"`, `"paste"`, `"delete 3"`, `"control c"`
-- Say `"dictation mode"` to return to typing
-
-## ♿ Accessibility
-
-Ideal for individuals with limited mobility needing voice-based system interaction.
+Logs:
+-----
+- View logs in ~/.local/share/whisper-dictation.log
