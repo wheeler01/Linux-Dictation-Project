@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 
 import whisper
@@ -20,15 +19,25 @@ log_path = os.path.expanduser("~/.local/share/whisper-dictation.log")
 os.makedirs(os.path.dirname(log_path), exist_ok=True)
 logging.basicConfig(filename=log_path, level=logging.INFO, format="%(asctime)s %(message)s")
 
+try:
+    import torch
+    use_fp16 = torch.cuda.is_available() and torch.cuda.get_device_capability(0)[0] >= 7
+    torch.set_num_threads(1)
+except Exception:
+    use_fp16 = False
+
+model_size = "base"
 logging.info("Loading Whisper model...")
-model = whisper.load_model("small")
-logging.info("Whisper model loaded.")
+model = whisper.load_model(model_size)
+logging.info(f"Whisper model loaded: {model_size} | FP16 Supported: {use_fp16}")
 
 sample_rate = 16000
-duration = 5
+duration = 3
 MOUSE_SPEED = 50
 mode = "dictation"
 listening = False
+state_lock = threading.Lock()
+click_in_progress = False
 
 REPLACEMENTS = {
     r"\bcomma\b": ",",
@@ -61,22 +70,22 @@ def apply_replacements(text):
     if command == "command mode":
         mode = "command"
         logging.info("Switched to command mode")
-        overlay.update_text()
+        QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.update_text(), QtCore.Qt.QueuedConnection)
         return ""
     elif command == "dictation mode":
         mode = "dictation"
         logging.info("Switched to dictation mode")
-        overlay.update_text()
+        QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.update_text(), QtCore.Qt.QueuedConnection)
         return ""
     elif command in ["stop listening", "go to sleep"]:
         listening = False
         logging.info("Listening paused")
-        overlay.update_text()
+        QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.update_text(), QtCore.Qt.QueuedConnection)
         return ""
     elif "wake up" in command or "start listening" in command:
         logging.info("Wake command matched inside apply_replacements")
         listening = True
-        overlay.update_text()
+        QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.update_text(), QtCore.Qt.QueuedConnection)
         logging.info("Listening state set to True")
         return ""
 
@@ -111,26 +120,26 @@ def type_text(text):
 def dictation_loop():
     try:
         while True:
-            overlay.set_state("listening")
+            QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.set_state("listening"), QtCore.Qt.QueuedConnection)
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
                 audio = record_audio()
                 save_audio_to_wav(audio, tmpfile.name)
-                overlay.set_state("processing")
+                QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.set_state("processing"), QtCore.Qt.QueuedConnection)
                 logging.info(f"Transcribing {tmpfile.name}...")
-                result = model.transcribe(tmpfile.name, language='en')
+                result = model.transcribe(tmpfile.name, language='en', fp16=use_fp16, vad_filter=False)
                 text = result["text"].strip()
                 os.remove(tmpfile.name)
 
-                if not text:
-                    logging.info("Empty transcript, skipping.")
-                    overlay.set_state("idle")
-                    continue
+            if not text:
+                logging.info("Empty transcript, skipping.")
+                QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.set_state("idle"), QtCore.Qt.QueuedConnection)
+                continue
 
-                logging.info(f"Transcript: {text}")
-                processed = apply_replacements(text)
-                if processed or listening:
-                    type_text(processed)
-                overlay.set_state("idle")
+            logging.info(f"Transcript: {text}")
+            processed = apply_replacements(text)
+            if processed or listening:
+                type_text(processed)
+            QtCore.QMetaObject.invokeMethod(overlay, lambda: overlay.set_state("idle"), QtCore.Qt.QueuedConnection)
     except Exception as e:
         logging.error(f"Dictation loop error: {e}")
 
@@ -146,6 +155,7 @@ class OverlayWidget(QtWidgets.QWidget):
         self.offset = None
         self.mousePressEvent = self.click_handler
         self.mouseMoveEvent = self.move_handler
+        self._last_state = None
         self.set_state("idle")
 
     def detect_fp32(self):
@@ -156,15 +166,21 @@ class OverlayWidget(QtWidgets.QWidget):
             return True
 
     def set_state(self, state):
-        color_map = {
-            "idle": "#8B0000",
-            "listening": "#006400",
-            "processing": "#DAA520"
-        }
-        bg_color = color_map.get(state, "#333")
-        badge = "\n32" if self.fp32 else ""
-        self.label.setText(f"Mode: {mode.title()}{badge}\n{'🎙️ Listening' if listening else '😴 Asleep'}")
-        self.setStyleSheet(f"background-color: {bg_color}; color: white; font-size: 16px; padding: 10px; border: 2px solid #555; border-radius: 10px;")
+        if getattr(self, "_last_state", None) == state:
+            return
+        self._last_state = state
+        try:
+            color_map = {
+                "idle": "#8B0000",
+                "listening": "#006400",
+                "processing": "#DAA520"
+            }
+            bg_color = color_map.get(state, "#333")
+            badge = "\n32" if self.fp32 else ""
+            self.label.setText(f"Mode: {mode.title()}{badge}\n{'🎙️ Listening' if listening else '😴 Asleep'}")
+            self.setStyleSheet(f"background-color: {bg_color}; color: white; font-size: 16px; padding: 10px; border: 2px solid #555; border-radius: 10px;")
+        except Exception as e:
+            logging.error(f"Error setting widget state: {e}")
 
     def update_text(self):
         self.set_state("idle")
@@ -173,7 +189,7 @@ class OverlayWidget(QtWidgets.QWidget):
         global mode
         if event.button() == QtCore.Qt.LeftButton:
             mode = "command" if mode == "dictation" else "dictation"
-            self.update_text()
+            QtCore.QTimer.singleShot(0, self.update_text)
             logging.info(f"Widget toggled mode to {mode}")
             self.offset = event.pos()
 
@@ -186,6 +202,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     overlay = OverlayWidget()
     overlay.show()
+    logging.info("Floating widget displayed")
     threading.Thread(target=dictation_loop, daemon=True).start()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     sys.exit(app.exec_())
