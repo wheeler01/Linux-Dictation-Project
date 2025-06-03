@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 
 import whisper
@@ -30,12 +31,12 @@ mode = "dictation"
 listening = False
 
 REPLACEMENTS = {
-    r"\\bcomma\\b": ",",
-    r"\\bperiod\\b": ".",
-    r"\\bquestion mark\\b": "?",
-    r"\\bexclamation mark\\b": "!",
-    r"\\bnew paragraph\\b": "\n\n",
-    r"\\bnew line\\b": "\n",
+    r"\bcomma\b": ",",
+    r"\bperiod\b": ".",
+    r"\bquestion mark\b": "?",
+    r"\bexclamation mark\b": "!",
+    r"\bnew paragraph\b": "\n\n",
+    r"\bnew line\b": "\n",
 }
 
 def record_audio():
@@ -60,34 +61,22 @@ def apply_replacements(text):
     if command == "command mode":
         mode = "command"
         logging.info("Switched to command mode")
-        try:
-            overlay.update_text()
-        except Exception as e:
-            logging.error(f"Overlay update failed: {e}")
+        overlay.update_text()
         return ""
     elif command == "dictation mode":
         mode = "dictation"
         logging.info("Switched to dictation mode")
-        try:
-            overlay.update_text()
-        except Exception as e:
-            logging.error(f"Overlay update failed: {e}")
+        overlay.update_text()
         return ""
     elif command in ["stop listening", "go to sleep"]:
         listening = False
         logging.info("Listening paused")
-        try:
-            overlay.update_text()
-        except Exception as e:
-            logging.error(f"Overlay update failed: {e}")
+        overlay.update_text()
         return ""
     elif "wake up" in command or "start listening" in command:
         logging.info("Wake command matched inside apply_replacements")
         listening = True
-        try:
-            overlay.update_text()
-        except Exception as e:
-            logging.error(f"Overlay update failed: {e}")
+        overlay.update_text()
         logging.info("Listening state set to True")
         return ""
 
@@ -122,9 +111,11 @@ def type_text(text):
 def dictation_loop():
     try:
         while True:
+            overlay.set_state("listening")
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmpfile:
                 audio = record_audio()
                 save_audio_to_wav(audio, tmpfile.name)
+                overlay.set_state("processing")
                 logging.info(f"Transcribing {tmpfile.name}...")
                 result = model.transcribe(tmpfile.name, language='en')
                 text = result["text"].strip()
@@ -132,32 +123,51 @@ def dictation_loop():
 
                 if not text:
                     logging.info("Empty transcript, skipping.")
+                    overlay.set_state("idle")
                     continue
 
                 logging.info(f"Transcript: {text}")
                 processed = apply_replacements(text)
                 if processed or listening:
                     type_text(processed)
+                overlay.set_state("idle")
     except Exception as e:
         logging.error(f"Dictation loop error: {e}")
 
 class OverlayWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+        self.fp32 = self.detect_fp32()
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint)
         self.setGeometry(100, 100, 240, 60)
-        self.setStyleSheet("background-color: #222; color: white; font-size: 16px; padding: 10px; border: 2px solid #555; border-radius: 10px;")
         self.label = QtWidgets.QLabel(self)
         self.label.setAlignment(QtCore.Qt.AlignCenter)
         self.label.setGeometry(0, 0, 240, 60)
-        self.update_text()
-
         self.offset = None
         self.mousePressEvent = self.click_handler
         self.mouseMoveEvent = self.move_handler
+        self.set_state("idle")
+
+    def detect_fp32(self):
+        try:
+            import torch
+            return not torch.cuda.is_available() or torch.cuda.get_device_capability(0)[0] < 7
+        except Exception:
+            return True
+
+    def set_state(self, state):
+        color_map = {
+            "idle": "#8B0000",
+            "listening": "#006400",
+            "processing": "#DAA520"
+        }
+        bg_color = color_map.get(state, "#333")
+        badge = "\n32" if self.fp32 else ""
+        self.label.setText(f"Mode: {mode.title()}{badge}\n{'🎙️ Listening' if listening else '😴 Asleep'}")
+        self.setStyleSheet(f"background-color: {bg_color}; color: white; font-size: 16px; padding: 10px; border: 2px solid #555; border-radius: 10px;")
 
     def update_text(self):
-        self.label.setText(f"Mode: {mode.title()}\n{'🎙️ Listening' if listening else '😴 Asleep'}")
+        self.set_state("idle")
 
     def click_handler(self, event):
         global mode
