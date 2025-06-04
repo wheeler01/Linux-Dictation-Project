@@ -30,12 +30,12 @@ mode = "dictation"
 listening = False
 
 REPLACEMENTS = {
-    r"\\bcomma\\b": ",",
-    r"\\bperiod\\b": ".",
-    r"\\bquestion mark\\b": "?",
-    r"\\bexclamation mark\\b": "!",
-    r"\\bnew paragraph\\b": "\n\n",
-    r"\\bnew line\\b": "\n",
+    r"\bcomma\b": ",",
+    r"\bperiod\b": ".",
+    r"\bquestion mark\b": "?",
+    r"\bexclamation mark\b": "!",
+    r"\bnew paragraph\b": "\n\n",
+    r"\bnew line\b": "\n",
 }
 
 def record_audio():
@@ -157,7 +157,8 @@ class OverlayWidget(QtWidgets.QWidget):
         self.mouseMoveEvent = self.move_handler
 
     def update_text(self):
-        self.label.setText(f"Mode: {mode.title()}\n{'🎙️ Listening' if listening else '😴 Asleep'}")
+        state = "🎙️ Listening" if listening else "😴 Asleep"
+        self.label.setText(f"Mode: {mode.title()}\n{state}")
 
     def click_handler(self, event):
         global mode
