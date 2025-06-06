@@ -1,111 +1,47 @@
+# Linux Dictation Project v1.0.0
 
-# Linux Dictation Project
+## Description
+Voice-based dictation and command execution for Linux using Whisper AI.
 
-A voice-powered dictation and command system for Linux using OpenAI Whisper.
+## Features
+- 🎤 Dictation Mode: Speak text and it gets typed.
+- 🖱️ Command Mode: Execute key commands like `ctrl+alt+delete`, `backspace`, etc.
+- 🛌 Asleep Mode: Pauses input. Say "wake up" or "start listening" to resume.
+- 🟢 Movable floating widget displays current mode and state.
+- 🧠 Common voice commands like "select all", "copy", "paste" are supported.
 
-Created and maintained by **Andrew Mitchell**, President and Senior Network Engineer of VoIPster Communications, Inc.
+## Usage
 
----
-
-## 🆕 Version 0.9.6 Highlights
-
-- ✅ **Color-coded floating widget** (Green = Listening, Yellow = Processing, Red = Idle)
-- ✅ **FP32 processor detection** with a small "32" badge shown on CPU-only systems
-- ✅ Improved **wake command detection**
-- ✅ Real-time punctuation and selection commands
-- ✅ Works in headless environments using `QT_QPA_PLATFORM=offscreen`
-- ✅ Logging enabled at `~/.local/share/whisper-dictation.log`
-
----
-
-## 🖥️ Features
-
-- 🎙️ Whisper-based speech-to-text transcription
-- 🗣️ Two modes: Dictation Mode and Command Mode
-- 🔤 Voice-activated editing: "select word", "select 3 words", "select line"
-- ⌨️ Support for modifier key commands: "hold shift", "release control"
-- 💬 Automatic punctuation support
-- 🪟 Movable floating overlay widget
-
----
-
-## 📦 Installation
-
-### Fedora 42
-
+### Install Dependencies (Fedora/Debian)
 ```bash
-sudo dnf install python3-pip xdotool portaudio-devel ffmpeg
-pip3 install sounddevice numpy scipy pyqt5 openai-whisper
+sudo dnf install python3-pip portaudio python3-devel qt5-qtbase-devel xdotool
+pip3 install whisper sounddevice numpy scipy pynput PyQt5
 ```
 
-### Debian/Ubuntu
-
-```bash
-sudo apt install python3-pip xdotool portaudio19-dev ffmpeg
-pip3 install sounddevice numpy scipy pyqt5 openai-whisper
-```
-
----
-
-## 🚀 Usage
-
-Run the application:
-
+### Run Manually
 ```bash
 python3 whisper_dictate.py
 ```
 
-To run it as a background service on login:
+### Modes
+- "command mode": Switch to command input
+- "dictation mode": Switch to dictation
+- "go to sleep" or "stop listening": Pauses recognition
+- "wake up" or "start listening": Resumes recognition
 
-### Create a systemd user service
+### Example Commands in Command Mode
+- "control c"
+- "control alt delete"
+- "select all"
+- "copy"
+- "backspace"
 
-Save the following to `~/.config/systemd/user/whisper-dictation.service`:
+## Logging
+Log file at: `~/.local/share/whisper-dictation.log`
 
-```ini
-[Unit]
-Description=Linux Whisper Voice Dictation
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/python3 /home/YOUR_USERNAME/path/to/whisper_dictate.py
-Restart=always
-Environment=QT_QPA_PLATFORM=offscreen
-
-[Install]
-WantedBy=default.target
-```
-
-Then enable and start the service:
-
-```bash
-systemctl --user daemon-reexec
-systemctl --user enable whisper-dictation.service
-systemctl --user start whisper-dictation.service
-```
+## Notes
+Tested with the `small` Whisper model. For better speed on low-resource systems, use `tiny` or `base`.
 
 ---
 
-## 💡 Tips
-
-- Click the floating widget to toggle between Dictation and Command modes.
-- Say **"command mode"** or **"dictation mode"** to switch modes by voice.
-- Say **"wake up"** to start listening again, or **"stop listening"** to pause.
-- Use your voice to type text, move the mouse, or simulate keystrokes.
-
----
-
-## 🛠 Troubleshooting
-
-Check the log for diagnostics:
-
-```bash
-cat ~/.local/share/whisper-dictation.log
-```
-
-Ensure your microphone is working and that PulseAudio or PipeWire is correctly configured.
-
----
-
-## 🔖 License
-
-MIT License
+© 2025 Voipster Communications, Inc. | MIT License
