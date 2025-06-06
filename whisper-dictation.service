@@ -1,13 +1,10 @@
-
 [Unit]
-Description=Linux Whisper Voice Dictation v0.9.4
-After=default.target
+Description=Linux Dictation Project v1.0.0 - Whisper Voice Control
+After=network.target sound.target
 
 [Service]
-Type=simple
 ExecStart=/usr/bin/python3 /home/andrew.mitchell/bin/Scripts/whisper_dictate.py
 Restart=always
-RestartSec=3
 Environment=QT_QPA_PLATFORM=offscreen
 
 [Install]
